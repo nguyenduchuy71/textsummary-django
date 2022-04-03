@@ -2,8 +2,11 @@ from django.shortcuts import render
 from django.views import generic
 from .forms import FileForm
 from .utils import handle_uploaded_file
+import tensorflow as tf
+from transformers import AutoTokenizer
 # Create your views here.
-
+tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base", use_fast=False)
+reloaded = tf.saved_model.load('web/static/model')
 
 def index(request):
     file_form = FileForm()
@@ -17,7 +20,10 @@ class SummaryView(generic.View):
     def post(self, request):
         file_form = FileForm()
         text = request.POST['text']
-        return render(request, 'web/index.html', {"text": text, "summary": text, "form": file_form})
+        example = tokenizer.encode(text, max_length = 1000,truncation="longest_first", padding = 'max_length')
+        example = tf.convert_to_tensor([example], dtype=tf.int64)
+        summary = tokenizer.decode(reloaded(example)[0])[4:-4]
+        return render(request, 'web/index.html', {"text": text, "summary": summary, "form": file_form})
 
 
 class ViewUploadFile(generic.View):
